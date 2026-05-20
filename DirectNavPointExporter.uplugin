@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Direct Nav Point Exporter",
+	"Description": "Directly samples free points from the current world NavMesh without exporting intermediate navmesh files.",
+	"Category": "Navigation",
+	"CreatedBy": "OpenAI Codex",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"EnabledByDefault": true,
+	"Modules": [
+		{
+			"Name": "DirectNavPointExporterRuntime",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault"
+		}
+	]
+}
