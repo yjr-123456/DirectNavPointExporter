@@ -34,6 +34,14 @@ public:
 	);
 
 	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter")
+	bool GetReachablePointsInRadiusCached(
+		const FDirectNavReachablePointQueryConfig& QueryConfig,
+		const FDirectNavRadiusPointQueryConfig& RadiusQuery,
+		TArray<FVector>& OutPoints,
+		FDirectNavSamplingResult& OutResult
+	);
+
+	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter")
 	void SetSamplingOptions(
 		float InStartupDelay,
 		const FDirectNavSamplerConfig& InSamplerConfig,
@@ -73,6 +81,7 @@ private:
 	void RunAutomaticSampling();
 	bool EnsureSamplingContextReady();
 	FString BuildCacheKey(const FDirectNavReachablePointQueryConfig& QueryConfig) const;
+	static bool IsPointInRadius(const FVector& Point, const FDirectNavRadiusPointQueryConfig& RadiusQuery);
 	static FDirectNavSamplerConfig MakeSamplerConfig(const FDirectNavReachablePointQueryConfig& QueryConfig);
 	static FDirectNavWorldFilterConfig MakeWorldFilterConfig(const FDirectNavReachablePointQueryConfig& QueryConfig);
 	static int32 FilterPointsWithWorldCollision(UWorld* World, FDirectNavSamplingResult& InOutResult, const FDirectNavWorldFilterConfig& FilterConfig);

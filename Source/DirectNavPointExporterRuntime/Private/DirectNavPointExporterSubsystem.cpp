@@ -99,6 +99,50 @@ bool UDirectNavPointExporterSubsystem::GetReachablePointsCached(
 	return true;
 }
 
+bool UDirectNavPointExporterSubsystem::GetReachablePointsInRadiusCached(
+	const FDirectNavReachablePointQueryConfig& QueryConfig,
+	const FDirectNavRadiusPointQueryConfig& RadiusQuery,
+	TArray<FVector>& OutPoints,
+	FDirectNavSamplingResult& OutResult)
+{
+	OutPoints.Empty();
+	OutResult.Reset();
+
+	if (RadiusQuery.Radius <= 0.0f)
+	{
+		return false;
+	}
+
+	TArray<FVector> BasePoints;
+	FDirectNavSamplingResult BaseResult;
+	if (!GetReachablePointsCached(QueryConfig, BasePoints, BaseResult))
+	{
+		return false;
+	}
+
+	OutResult = BaseResult;
+	OutResult.SamplePoints.Empty();
+	OutResult.SamplePoints.Reserve(BaseResult.SamplePoints.Num());
+
+	for (const FDirectNavSamplePoint& SamplePoint : BaseResult.SamplePoints)
+	{
+		if (!SamplePoint.bIsValid)
+		{
+			continue;
+		}
+
+		if (IsPointInRadius(SamplePoint.Location, RadiusQuery))
+		{
+			OutPoints.Add(SamplePoint.Location);
+			OutResult.SamplePoints.Add(SamplePoint);
+		}
+	}
+
+	OutResult.ValidPoints = OutPoints.Num();
+	OutResult.TotalArea = OutResult.ValidPoints * QueryConfig.GridSpacing * QueryConfig.GridSpacing;
+	return true;
+}
+
 void UDirectNavPointExporterSubsystem::SetSamplingOptions(
 	float InStartupDelay,
 	const FDirectNavSamplerConfig& InSamplerConfig,
@@ -249,6 +293,24 @@ FString UDirectNavPointExporterSubsystem::BuildCacheKey(const FDirectNavReachabl
 		QueryConfig.bFilterOnObstacles ? 1 : 0,
 		static_cast<int32>(QueryConfig.ObstacleTraceChannel)
 	);
+}
+
+bool UDirectNavPointExporterSubsystem::IsPointInRadius(const FVector& Point, const FDirectNavRadiusPointQueryConfig& RadiusQuery)
+{
+	if (RadiusQuery.Radius <= 0.0f)
+	{
+		return false;
+	}
+
+	const float RadiusSquared = RadiusQuery.Radius * RadiusQuery.Radius;
+	if (RadiusQuery.bUse2DDistance)
+	{
+		const float DeltaX = Point.X - RadiusQuery.Center.X;
+		const float DeltaY = Point.Y - RadiusQuery.Center.Y;
+		return (DeltaX * DeltaX + DeltaY * DeltaY) <= RadiusSquared;
+	}
+
+	return FVector::DistSquared(Point, RadiusQuery.Center) <= RadiusSquared;
 }
 
 FDirectNavSamplerConfig UDirectNavPointExporterSubsystem::MakeSamplerConfig(const FDirectNavReachablePointQueryConfig& QueryConfig)

@@ -60,6 +60,15 @@ public:
 		FDirectNavReachableAreaData& OutArea
 	);
 
+	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "QueryConfig,RadiusQuery"))
+	static bool GetReachablePointsInRadiusCached(
+		UObject* WorldContextObject,
+		const FDirectNavReachablePointQueryConfig& QueryConfig,
+		const FDirectNavRadiusPointQueryConfig& RadiusQuery,
+		TArray<FVector>& OutPoints,
+		FDirectNavSamplingResult& OutResult
+	);
+
 	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "QueryConfig,DisplayConfig"))
 	static bool ShowReachableAreaCached(
 		UObject* WorldContextObject,
@@ -71,6 +80,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject"))
 	static bool GetDefaultCachedFreePointsFromWorldNavMesh(
 		UObject* WorldContextObject,
+		TArray<FVector>& OutPoints,
+		FDirectNavSamplingResult& OutResult
+	);
+
+	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "RadiusQuery"))
+	static bool GetDefaultCachedFreePointsInRadius(
+		UObject* WorldContextObject,
+		const FDirectNavRadiusPointQueryConfig& RadiusQuery,
 		TArray<FVector>& OutPoints,
 		FDirectNavSamplingResult& OutResult
 	);

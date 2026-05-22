@@ -206,3 +206,18 @@ struct DIRECTNAVPOINTEXPORTERRUNTIME_API FDirectNavReachableAreaDisplayConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Direct Nav Point Exporter")
 	bool bDrawCellOutline = false;
 };
+
+USTRUCT(BlueprintType)
+struct DIRECTNAVPOINTEXPORTERRUNTIME_API FDirectNavRadiusPointQueryConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Direct Nav Point Exporter")
+	FVector Center = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Direct Nav Point Exporter")
+	float Radius = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Direct Nav Point Exporter")
+	bool bUse2DDistance = true;
+};

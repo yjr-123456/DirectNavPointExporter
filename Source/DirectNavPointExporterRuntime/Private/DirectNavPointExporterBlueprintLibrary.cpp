@@ -186,6 +186,24 @@ bool UDirectNavPointExporterBlueprintLibrary::BuildReachableAreaCached(
 	return false;
 }
 
+bool UDirectNavPointExporterBlueprintLibrary::GetReachablePointsInRadiusCached(
+	UObject* WorldContextObject,
+	const FDirectNavReachablePointQueryConfig& QueryConfig,
+	const FDirectNavRadiusPointQueryConfig& RadiusQuery,
+	TArray<FVector>& OutPoints,
+	FDirectNavSamplingResult& OutResult)
+{
+	OutPoints.Empty();
+	OutResult.Reset();
+
+	if (UDirectNavPointExporterSubsystem* Subsystem = GetDirectNavPointExporterSubsystem(WorldContextObject))
+	{
+		return Subsystem->GetReachablePointsInRadiusCached(QueryConfig, RadiusQuery, OutPoints, OutResult);
+	}
+
+	return false;
+}
+
 bool UDirectNavPointExporterBlueprintLibrary::ShowReachableAreaCached(
 	UObject* WorldContextObject,
 	const FDirectNavReachablePointQueryConfig& QueryConfig,
@@ -231,6 +249,31 @@ bool UDirectNavPointExporterBlueprintLibrary::GetDefaultCachedFreePointsFromWorl
 		OutPoints = Subsystem->GetCachedPoints();
 		OutResult = Subsystem->GetCachedResult();
 		return true;
+	}
+
+	return false;
+}
+
+bool UDirectNavPointExporterBlueprintLibrary::GetDefaultCachedFreePointsInRadius(
+	UObject* WorldContextObject,
+	const FDirectNavRadiusPointQueryConfig& RadiusQuery,
+	TArray<FVector>& OutPoints,
+	FDirectNavSamplingResult& OutResult)
+{
+	OutPoints.Empty();
+	OutResult.Reset();
+
+	if (UDirectNavPointExporterSubsystem* Subsystem = GetDirectNavPointExporterSubsystem(WorldContextObject))
+	{
+		if (!Subsystem->IsCacheReady())
+		{
+			if (!Subsystem->ResamplePoints() || !Subsystem->IsCacheReady())
+			{
+				return false;
+			}
+		}
+
+		return Subsystem->GetReachablePointsInRadiusCached(Subsystem->GetDefaultQueryConfig(), RadiusQuery, OutPoints, OutResult);
 	}
 
 	return false;
