@@ -173,13 +173,38 @@ bool UDirectNavPointExporterBlueprintLibrary::BuildReachableAreaCached(
 			return false;
 		}
 
-		BuildReachableAreaData(
-			CachedPoints,
-			CachedResult,
-			Subsystem->GetCacheStatus().MapName,
-			FMath::Max(QueryConfig.GridSpacing, 1.0f),
-			OutArea
-		);
+		OutArea.Reset();
+		OutArea.MapName = Subsystem->GetCacheStatus().MapName;
+		OutArea.GridSpacing = FMath::Max(QueryConfig.GridSpacing, 1.0f);
+
+		const float EffectiveGridSpacing = OutArea.GridSpacing;
+		const float HalfSpacing = EffectiveGridSpacing * 0.5f;
+		const FVector BoundsOrigin = CachedResult.NavMeshBounds.IsValid ? CachedResult.NavMeshBounds.Min : CachedPoints[0];
+		TSet<FIntPoint> SeenCells;
+		OutArea.CellCenters.Reserve(CachedPoints.Num());
+
+		for (const FVector& Point : CachedPoints)
+		{
+			const int32 GridX = FMath::RoundToInt((Point.X - BoundsOrigin.X) / EffectiveGridSpacing);
+			const int32 GridY = FMath::RoundToInt((Point.Y - BoundsOrigin.Y) / EffectiveGridSpacing);
+			const FIntPoint CellIndex(GridX, GridY);
+			if (SeenCells.Contains(CellIndex))
+			{
+				continue;
+			}
+
+			SeenCells.Add(CellIndex);
+			const FVector SnappedCenter(
+				BoundsOrigin.X + GridX * EffectiveGridSpacing,
+				BoundsOrigin.Y + GridY * EffectiveGridSpacing,
+				Point.Z
+			);
+			OutArea.CellCenters.Add(SnappedCenter);
+			OutArea.CoveredBounds += SnappedCenter + FVector(HalfSpacing, HalfSpacing, 0.0f);
+			OutArea.CoveredBounds += SnappedCenter - FVector(HalfSpacing, HalfSpacing, 0.0f);
+		}
+
+		OutArea.CellCount = OutArea.CellCenters.Num();
 		return OutArea.CellCount > 0;
 	}
 
@@ -207,10 +232,16 @@ bool UDirectNavPointExporterBlueprintLibrary::GetReachablePointsInRadiusCached(
 bool UDirectNavPointExporterBlueprintLibrary::ShowReachableAreaCached(
 	UObject* WorldContextObject,
 	const FDirectNavReachablePointQueryConfig& QueryConfig,
+	const FDirectNavRadiusPointQueryConfig& RadiusQuery,
 	const FDirectNavReachableAreaDisplayConfig& DisplayConfig,
 	int32& OutDrawnCellCount)
 {
 	OutDrawnCellCount = 0;
+
+	if (RadiusQuery.Radius <= 0.0f)
+	{
+		return false;
+	}
 
 	UWorld* World = nullptr;
 	if (!ResolveWorld(WorldContextObject, World))
@@ -218,13 +249,19 @@ bool UDirectNavPointExporterBlueprintLibrary::ShowReachableAreaCached(
 		return false;
 	}
 
-	FDirectNavReachableAreaData AreaData;
-	if (!BuildReachableAreaCached(WorldContextObject, QueryConfig, AreaData))
+	TArray<FVector> RadiusPoints;
+	FDirectNavSamplingResult RadiusResult;
+	if (!GetReachablePointsInRadiusCached(WorldContextObject, QueryConfig, RadiusQuery, RadiusPoints, RadiusResult))
 	{
 		return false;
 	}
 
-	OutDrawnCellCount = DrawReachableArea(World, AreaData, DisplayConfig);
+	if (RadiusPoints.IsEmpty())
+	{
+		return false;
+	}
+
+	OutDrawnCellCount = DrawReachablePoints(World, RadiusPoints, DisplayConfig);
 	return OutDrawnCellCount > 0;
 }
 
@@ -281,10 +318,16 @@ bool UDirectNavPointExporterBlueprintLibrary::GetDefaultCachedFreePointsInRadius
 
 bool UDirectNavPointExporterBlueprintLibrary::ShowDefaultCachedReachableArea(
 	UObject* WorldContextObject,
+	const FDirectNavRadiusPointQueryConfig& RadiusQuery,
 	const FDirectNavReachableAreaDisplayConfig& DisplayConfig,
 	int32& OutDrawnCellCount)
 {
 	OutDrawnCellCount = 0;
+
+	if (RadiusQuery.Radius <= 0.0f)
+	{
+		return false;
+	}
 
 	UWorld* World = nullptr;
 	if (!ResolveWorld(WorldContextObject, World))
@@ -302,17 +345,20 @@ bool UDirectNavPointExporterBlueprintLibrary::ShowDefaultCachedReachableArea(
 			}
 		}
 
-		FDirectNavReachableAreaData AreaData;
 		const FDirectNavReachablePointQueryConfig DefaultQueryConfig = Subsystem->GetDefaultQueryConfig();
-		BuildReachableAreaData(
-			Subsystem->GetCachedPoints(),
-			Subsystem->GetCachedResult(),
-			Subsystem->GetCacheStatus().MapName,
-			FMath::Max(DefaultQueryConfig.GridSpacing, 1.0f),
-			AreaData
-		);
+		TArray<FVector> RadiusPoints;
+		FDirectNavSamplingResult RadiusResult;
+		if (!Subsystem->GetReachablePointsInRadiusCached(DefaultQueryConfig, RadiusQuery, RadiusPoints, RadiusResult))
+		{
+			return false;
+		}
 
-		OutDrawnCellCount = DrawReachableArea(World, AreaData, DisplayConfig);
+		if (RadiusPoints.IsEmpty())
+		{
+			return false;
+		}
+
+		OutDrawnCellCount = DrawReachablePoints(World, RadiusPoints, DisplayConfig);
 		return OutDrawnCellCount > 0;
 	}
 
@@ -393,90 +439,43 @@ bool UDirectNavPointExporterBlueprintLibrary::ClearReachableAreaDebug(UObject* W
 	return true;
 }
 
-void UDirectNavPointExporterBlueprintLibrary::BuildReachableAreaData(
-	const TArray<FVector>& Points,
-	const FDirectNavSamplingResult& Result,
-	const FString& MapName,
-	float GridSpacing,
-	FDirectNavReachableAreaData& OutArea)
-{
-	OutArea.Reset();
-	OutArea.MapName = MapName;
-	OutArea.GridSpacing = FMath::Max(GridSpacing, 1.0f);
-
-	if (Points.IsEmpty())
-	{
-		return;
-	}
-
-	const float EffectiveGridSpacing = OutArea.GridSpacing;
-	const float HalfSpacing = EffectiveGridSpacing * 0.5f;
-	const FVector BoundsOrigin = Result.NavMeshBounds.IsValid ? Result.NavMeshBounds.Min : Points[0];
-	TSet<FIntPoint> SeenCells;
-	OutArea.CellCenters.Reserve(Points.Num());
-
-	for (const FVector& Point : Points)
-	{
-		const int32 GridX = FMath::RoundToInt((Point.X - BoundsOrigin.X) / EffectiveGridSpacing);
-		const int32 GridY = FMath::RoundToInt((Point.Y - BoundsOrigin.Y) / EffectiveGridSpacing);
-		const FIntPoint CellIndex(GridX, GridY);
-		if (SeenCells.Contains(CellIndex))
-		{
-			continue;
-		}
-
-		SeenCells.Add(CellIndex);
-		const FVector SnappedCenter(
-			BoundsOrigin.X + GridX * EffectiveGridSpacing,
-			BoundsOrigin.Y + GridY * EffectiveGridSpacing,
-			Point.Z
-		);
-		OutArea.CellCenters.Add(SnappedCenter);
-		OutArea.CoveredBounds += SnappedCenter + FVector(HalfSpacing, HalfSpacing, 0.0f);
-		OutArea.CoveredBounds += SnappedCenter - FVector(HalfSpacing, HalfSpacing, 0.0f);
-	}
-
-	OutArea.CellCount = OutArea.CellCenters.Num();
-}
-
-int32 UDirectNavPointExporterBlueprintLibrary::DrawReachableArea(
+int32 UDirectNavPointExporterBlueprintLibrary::DrawReachablePoints(
 	UWorld* World,
-	const FDirectNavReachableAreaData& AreaData,
+	const TArray<FVector>& Points,
 	const FDirectNavReachableAreaDisplayConfig& DisplayConfig)
 {
-	if (!World || AreaData.CellCenters.IsEmpty())
+	if (!World || Points.IsEmpty())
 	{
 		return 0;
 	}
 
-	const int32 MaxCells = DisplayConfig.MaxCellsToDraw <= 0
-		? AreaData.CellCenters.Num()
-		: FMath::Min(DisplayConfig.MaxCellsToDraw, AreaData.CellCenters.Num());
-	const float HalfSpacing = FMath::Max(AreaData.GridSpacing * 0.5f, 1.0f);
-	const FVector CellExtent(HalfSpacing, HalfSpacing, 2.0f);
+	const int32 MaxPoints = DisplayConfig.MaxCellsToDraw <= 0
+		? Points.Num()
+		: FMath::Min(DisplayConfig.MaxCellsToDraw, Points.Num());
+	const FVector PointExtent(10.0f, 10.0f, 10.0f);
 	const FColor DrawColor = DisplayConfig.Color.ToFColor(true);
 	const bool bPersistent = DisplayConfig.bPersistent;
 	const float Lifetime = bPersistent ? -1.0f : FMath::Max(DisplayConfig.Duration, 0.0f);
 
-	int32 DrawnCellCount = 0;
-	for (int32 CellIndex = 0; CellIndex < MaxCells; ++CellIndex)
+	int32 DrawnPointCount = 0;
+	for (int32 PointIndex = 0; PointIndex < MaxPoints; ++PointIndex)
 	{
-		const FVector ElevatedCenter = AreaData.CellCenters[CellIndex] + FVector(0.0f, 0.0f, DisplayConfig.HeightOffset);
+		const FVector ElevatedCenter = Points[PointIndex] + FVector(0.0f, 0.0f, DisplayConfig.HeightOffset);
 
 		if (DisplayConfig.bDrawFilledCells)
 		{
-			DrawDebugSolidBox(World, ElevatedCenter, CellExtent, DrawColor, bPersistent, Lifetime);
+			DrawDebugPoint(World, ElevatedCenter, 12.0f, DrawColor, bPersistent, Lifetime);
 		}
 
 		if (DisplayConfig.bDrawCellOutline)
 		{
-			DrawDebugBox(World, ElevatedCenter, CellExtent, DrawColor, bPersistent, Lifetime, 0, DisplayConfig.LineThickness);
+			DrawDebugBox(World, ElevatedCenter, PointExtent, DrawColor, bPersistent, Lifetime, 0, DisplayConfig.LineThickness);
 		}
 
-		++DrawnCellCount;
+		++DrawnPointCount;
 	}
 
-	return DrawnCellCount;
+	return DrawnPointCount;
 }
 
 int32 UDirectNavPointExporterBlueprintLibrary::FilterPointsWithWorldCollision(

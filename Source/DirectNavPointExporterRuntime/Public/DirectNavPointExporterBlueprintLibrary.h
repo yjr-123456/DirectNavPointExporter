@@ -69,10 +69,11 @@ public:
 		FDirectNavSamplingResult& OutResult
 	);
 
-	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "QueryConfig,DisplayConfig"))
+	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "QueryConfig,RadiusQuery,DisplayConfig"))
 	static bool ShowReachableAreaCached(
 		UObject* WorldContextObject,
 		const FDirectNavReachablePointQueryConfig& QueryConfig,
+		const FDirectNavRadiusPointQueryConfig& RadiusQuery,
 		const FDirectNavReachableAreaDisplayConfig& DisplayConfig,
 		int32& OutDrawnCellCount
 	);
@@ -92,9 +93,10 @@ public:
 		FDirectNavSamplingResult& OutResult
 	);
 
-	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "DisplayConfig"))
+	UFUNCTION(BlueprintCallable, Category = "Direct Nav Point Exporter", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "RadiusQuery,DisplayConfig"))
 	static bool ShowDefaultCachedReachableArea(
 		UObject* WorldContextObject,
+		const FDirectNavRadiusPointQueryConfig& RadiusQuery,
 		const FDirectNavReachableAreaDisplayConfig& DisplayConfig,
 		int32& OutDrawnCellCount
 	);
@@ -124,16 +126,9 @@ public:
 	static bool ClearReachableAreaDebug(UObject* WorldContextObject);
 
 private:
-	static void BuildReachableAreaData(
-		const TArray<FVector>& Points,
-		const FDirectNavSamplingResult& Result,
-		const FString& MapName,
-		float GridSpacing,
-		FDirectNavReachableAreaData& OutArea
-	);
-	static int32 DrawReachableArea(
+	static int32 DrawReachablePoints(
 		UWorld* World,
-		const FDirectNavReachableAreaData& AreaData,
+		const TArray<FVector>& Points,
 		const FDirectNavReachableAreaDisplayConfig& DisplayConfig
 	);
 	static int32 FilterPointsWithWorldCollision(UWorld* World, FDirectNavSamplingResult& InOutResult, const FDirectNavWorldFilterConfig& FilterConfig);
