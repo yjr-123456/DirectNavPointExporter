@@ -12,7 +12,7 @@ The plugin is designed to:
 - cache query results by sampling parameters
 - rebuild sampling context automatically when the map changes
 - optionally integrate with `UnrealCV`
-- provide reachable-area debug visualization
+- provide reachable-point debug visualization
 
 ## Features
 
@@ -23,7 +23,7 @@ The plugin is designed to:
 - Automatic cache invalidation on world change
 - Blueprint function library for gameplay and runtime use
 - Optional `UnrealCV` command integration
-- Reachable-area debug visualization
+- Radius-based reachable-point debug visualization
 
 ## Requirements
 
@@ -65,6 +65,7 @@ Core functions:
 
 - `Get Reachable Points Cached`
 - `Get Default Cached Free Points From World NavMesh`
+- `Get Reachable Points In Radius Cached`
 - `Refresh Free Point Cache`
 - `Invalidate Free Point Cache`
 - `Get Free Point Cache Status`
@@ -122,20 +123,20 @@ This is not random sampling.
 
 ## Reachable Area Visualization
 
-Instead of drawing every reachable point as a sphere, the plugin can display an approximate reachable area using the final filtered sampling cells.
+`Show Reachable Area Cached` and `Show Default Cached Reachable Area` now draw actual reachable points inside a radius.
 
 This is useful when:
 
 - tuning `GridSpacing`
 - tuning `MinClearHeightAbove`
 - checking the effect of world filtering
-- debugging large maps without rendering thousands of point markers
+- limiting debug render cost to a local area
 
 Current area visualization is:
 
-- based on final filtered grid cells
-- approximate area coverage
+- radius-limited point rendering
 - not a direct render of native UE navmesh polygons
+- capped by `MaxCellsToDraw` in the display config
 
 ## Optional UnrealCV Integration
 
@@ -144,15 +145,18 @@ If your project integrates this plugin with `UnrealCV`, the following commands c
 - `vget /reachablepoints`
 - `vget /reachablepoints [grid_spacing]`
 - `vget /reachablepoints [grid_spacing] [min_clear_height]`
+- `vget /reachablepoints/inradius center_x center_y center_z radius [grid_spacing] [min_clear_height]`
 - `vget /reachablepoints/count`
 - `vget /reachablepoints/status`
 - `vset /reachablepoints/refresh`
 - `vset /reachablepoints/invalidate`
 - `vset /reachablepoints/invalidate context`
-- `vset /reachablearea/show`
-- `vset /reachablearea/show [grid_spacing]`
-- `vset /reachablearea/show [grid_spacing] [min_clear_height]`
+- `vset /reachablearea/show center_x center_y center_z radius [grid_spacing] [min_clear_height]`
 - `vset /reachablearea/clear`
+
+## API Documentation
+
+See [API.md](API.md) for the full interface reference.
 
 Note:
 
@@ -185,4 +189,4 @@ DirectNavPointExporter/
 - `Binaries/` and `Intermediate/` are generated and should not be versioned
 - the plugin is intended to stay independent from legacy nav export plugins
 - for large maps, prefer cached queries and area visualization over repeated full point dumps
-
+- for large maps, prefer cached queries and radius-limited point visualization over repeated full point dumps
